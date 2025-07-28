@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2BCycle App Builder</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <meta name="theme-color" content="#2242C7">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F0F4F7;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            color: #333;
+        }
+
+        /* Variables */
+        :root {
+            --primary-color: #2242C7;
+            --secondary-color: #18B875;
+            --text-color: #333;
+            --bg-light: #F0F4F7;
+            --bg-white: #fff;
+            --border-color: #eee;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 250px;
+            background-color: var(--bg-white);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .canvas-area {
+            flex-grow: 1;
+            background-color: var(--bg-light);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+        }
+        .app-canvas {
+            width: 375px; /* Typical phone width */
+            height: 667px; /* Typical phone height */
+            background-color: var(--bg-white);
+            border: 8px solid #333;
+            border-radius: 20px;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            position: relative;
+            display: flex;
+            flex-direction: column; /* To stack components */
+        }
+        .properties-sidebar {
+            width: 300px;
+            background-color: var(--bg-white);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            display: none; /* Hidden by default, shown when component selected */
+        }
+        .top-bar {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+        .top-bar h1 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+
+        /* Components */
+        .component-item {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            cursor: grab;
+            text-align: center;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+        .component-item:hover {
+            background-color: var(--secondary-color);
+        }
+        .component-item.dragging {
+            opacity: 0.7;
+        }
+
+        /* Canvas styling for dropped components */
+        .app-canvas .dropped-component {
+            padding: 10px;
+            margin: 5px 10px;
+            border: 1px dashed var(--border-color);
+            background-color: #fcfcfc;
+            cursor: grab;
+            position: relative;
+            min-height: 50px; /* Minimum height for drag area */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .app-canvas .dropped-component.selected {
+            border: 2px solid var(--primary-color);
+            box-shadow: 0 0 5px rgba(34, 66, 199, 0.5);
+        }
+        .app-canvas .dropped-component .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.8em;
+            cursor: pointer;
+            display: none; /* Hide by default */
+            z-index: 1;
+        }
+        .app-canvas .dropped-component:hover .delete-btn,
+        .app-canvas .dropped-component.selected .delete-btn {
+            display: block;
+        }
+
+        /* Buttons */
+        .action-buttons button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: background-color 0.2s;
+        }
+        .action-buttons button:hover {
+            background-color: #159a60;
+        }
+        .action-buttons button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Properties Sidebar */
+        .properties-sidebar h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+        .properties-sidebar label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .properties-sidebar input[type="text"],
+        .properties-sidebar textarea,
+        .properties-sidebar select {
+            width: calc(100% - 22px);
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        /* Zenodo Form */
+        #zenodoForm {
+            margin-top: 20px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+        #zenodoForm h3 {
+            color: var(--primary-color);
+        }
+        #zenodoForm button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        #zenodoForm button:hover {
+            background-color: #1c35a6;
+        }
+        #zenodoStatus {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* Preloader / Overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 9999;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Memuat 2BCycle App Builder...</p>
+    </div>
+
+    <div class="sidebar">
+        <h2>Komponen</h2>
+        <div class="component-item" draggable="true" data-type="text-block" data-default-content="Teks default di sini">
+            <i class="fas fa-paragraph"></i> Teks Block
+        </div>
+        <div class="component-item" draggable="true" data-type="image" data-default-src="https://via.placeholder.com/150/0000FF/FFFFFF?text=Gambar">
+            <i class="fas fa-image"></i> Gambar
+        </div>
+        <div class="component-item" draggable="true" data-type="button" data-default-text="Klik Saya">
+            <i class="fas fa-hand-pointer"></i> Tombol
+        </div>
+        <div class="component-item" draggable="true" data-type="iframe" data-default-src="https://www.youtube.com/embed/dQw4w9WgXcQ">
+            <i class="fas fa-code"></i> Embed (Iframe)
+        </div>
+        <div class="component-item" draggable="true" data-type="navbar" data-default-text="Dashboard,Program,Reward,Profil">
+            <i class="fas fa-bars"></i> Bottom Navbar
+        </div>
+        </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>2BCycle Mini App Builder</h1>
+            <div class="action-buttons">
+                <button id="generateAppBtn"><i class="fas fa-code"></i> Generate HTML App</button>
+            </div>
+        </div>
+        <div class="canvas-area" id="canvas-area">
+            <div class="app-canvas" id="app-canvas">
+                <p style="text-align: center; color: #888; margin-top: 50px;">Drag & drop komponen ke sini</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="properties-sidebar" id="properties-sidebar">
+        <h3>Properti Komponen</h3>
+        <div id="properties-form">
+            <p>Pilih komponen di kanvas untuk mengedit properti.</p>
+        </div>
+
+        <form id="zenodoForm" style="display: none;"> <h3>Daftarkan Aplikasi ke Zenodo (Jurnal Otomatis)</h3>
+            <p>Aplikasi yang Anda buat bisa didaftarkan sebagai karya digital dan mendapatkan DOI.</p>
+            <label for="zenodo-title">Judul Aplikasi / Jurnal:</label>
+            <input type="text" id="zenodo-title" name="title" required>
+
+            <label for="zenodo-description">Deskripsi (termasuk fitur dan tujuan):</label>
+            <textarea id="zenodo-description" name="description" rows="5" required></textarea>
+
+            <label for="zenodo-creators">Nama Anda (penulis):</label>
+            <input type="text" id="zenodo-creators" name="creators" value="Muhamad Oky" required>
+
+            <label for="zenodo-access-token">Zenodo Access Token (Sandbox/Production):</label>
+            <input type="password" id="zenodo-access-token" name="token" placeholder="Abaikan untuk simulasi" title="Zenodo Access Token diperlukan untuk submit sungguhan. Gunakan sandbox token untuk testing.">
+            <small>Dapatkan token dari Zenodo Anda (developers.zenodo.org). Untuk demo ini, kami hanya akan mensimulasikan.</small>
+            
+            <button type="submit" id="submitToZenodoBtn"><i class="fas fa-book"></i> Submit ke Zenodo</button>
+            <p id="zenodoStatus" style="font-size: 0.9em; margin-top: 10px;"></p>
+        </form>
+    </div>
+
+    <script>
+        // --- PWA Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('ServiceWorker registration failed: ', registrationError);
+                    });
+            });
+        }
+
+        const componentSidebar = document.querySelector('.sidebar');
+        const appCanvas = document.getElementById('app-canvas');
+        const propertiesSidebar = document.getElementById('properties-sidebar');
+        const propertiesForm = document.getElementById('properties-form');
+        const generateAppBtn = document.getElementById('generateAppBtn');
+        const zenodoForm = document.getElementById('zenodoForm');
+        const submitToZenodoBtn = document.getElementById('submitToZenodoBtn');
+        const zenodoStatus = document.getElementById('zenodoStatus');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        let draggedComponentType = null;
+        let draggedComponentDefaultContent = null;
+        let draggedComponentDefaultSrc = null;
+        let selectedCanvasComponent = null; // Currently selected component on canvas
+
+        // --- Component Definitions (for properties) ---
+        const componentDefinitions = {
+            'text-block': {
+                tag: 'p',
+                template: (content) => `<p class="app-text-block">${content}</p>`,
+                properties: [
+                    { id: 'text-content', label: 'Konten Teks', type: 'textarea', prop: 'innerText' }
+                ]
+            },
+            'image': {
+                tag: 'img',
+                template: (src) => `<img class="app-image" src="${src}" alt="App Image" style="max-width: 100%; height: auto;">`,
+                properties: [
+                    { id: 'image-src', label: 'URL Gambar', type: 'text', prop: 'src' }
+                ]
+            },
+            'button': {
+                tag: 'button',
+                template: (text) => `<button class="app-button">${text}</button>`,
+                properties: [
+                    { id: 'button-text', label: 'Teks Tombol', type: 'text', prop: 'innerText' }
+                ]
+            },
+            'iframe': {
+                tag: 'iframe',
+                template: (src) => `<iframe class="app-iframe" src="${src}" frameborder="0" style="width:100%; height:400px; border:1px solid #ccc;"></iframe>`,
+                properties: [
+                    { id: 'iframe-src', label: 'URL Iframe', type: 'text', prop: 'src' }
+                ]
+            },
+            'navbar': {
+                tag: 'nav',
+                template: (items) => `
+                    <nav class="app-bottom-nav">
+                        ${items.split(',').map((item, index) => `<a href="#${item.toLowerCase().replace(/\s/g, '-')}" class="app-nav-btn ${index === 0 ? 'active' : ''}">${item}</a>`).join('')}
+                    </nav>
+                `,
+                properties: [
+                    { id: 'navbar-items', label: 'Item Navigasi (pisahkan koma)', type: 'text', prop: 'data-items' } // Custom prop for generation
+                ]
+            }
+        };
+
+        // --- Drag and Drop Logic ---
+        componentSidebar.querySelectorAll('.component-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                draggedComponentType = e.target.dataset.type;
+                draggedComponentDefaultContent = e.target.dataset.defaultContent;
+                draggedComponentDefaultSrc = e.target.dataset.defaultSrc;
+                e.dataTransfer.setData('text/plain', draggedComponentType); // For compatibility
+                e.target.classList.add('dragging');
+            });
+
+            item.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+            });
+        });
+
+        appCanvas.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Allow drop
+        });
+
+        appCanvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedComponentType) {
+                const componentId = `comp-${Date.now()}`;
+                const newComp = document.createElement('div');
+                newComp.classList.add('dropped-component');
+                newComp.dataset.componentType = draggedComponentType;
+                newComp.dataset.componentId = componentId;
+
+                let innerHtml = '';
+                if (draggedComponentType === 'text-block') {
+                    innerHtml = componentDefinitions['text-block'].template(draggedComponentDefaultContent);
+                    newComp.dataset.content = draggedComponentDefaultContent;
+                } else if (draggedComponentType === 'image') {
+                    innerHtml = componentDefinitions['image'].template(draggedComponentDefaultSrc);
+                    newComp.dataset.src = draggedComponentDefaultSrc;
+                } else if (draggedComponentType === 'button') {
+                    innerHtml = componentDefinitions['button'].template(draggedComponentDefaultContent);
+                    newComp.dataset.text = draggedComponentDefaultContent;
+                } else if (draggedComponentType === 'iframe') {
+                    innerHtml = componentDefinitions['iframe'].template(draggedComponentDefaultSrc);
+                    newComp.dataset.src = draggedComponentDefaultSrc;
+                } else if (draggedComponentType === 'navbar') {
+                    innerHtml = componentDefinitions['navbar'].template(draggedComponentDefaultText); // Assuming defaultText for items
+                    newComp.dataset.items = draggedComponentDefaultContent; // Store items for generation
+                }
+
+                newComp.innerHTML = innerHtml + '<button class="delete-btn"><i class="fas fa-times-circle"></i></button>';
+                appCanvas.appendChild(newComp);
+
+                // Make dropped components draggable for reordering (optional)
+                newComp.draggable = true;
+                newComp.addEventListener('dragstart', handleCanvasComponentDragStart);
+                newComp.addEventListener('dragover', handleCanvasComponentDragOver);
+                newComp.addEventListener('drop', handleCanvasComponentDrop);
+                newComp.addEventListener('click', selectCanvasComponent);
+                newComp.querySelector('.delete-btn').addEventListener('click', deleteCanvasComponent);
+                
+                // Remove initial instruction
+                const initialInstruction = appCanvas.querySelector('p');
+                if (initialInstruction && initialInstruction.innerText.includes('Drag & drop')) {
+                    initialInstruction.remove();
+                }
+
+                draggedComponentType = null; // Reset
+            }
+        });
+
+        // --- Canvas Component Selection & Deletion ---
+        let dragSrcEl = null; // For reordering
+
+        function handleCanvasComponentDragStart(e) {
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML); // Data to transfer
+            this.classList.add('dragging');
+        }
+
+        function handleCanvasComponentDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (this !== dragSrcEl && this.classList.contains('dropped-component')) {
+                // Visual feedback for reordering
+                const rect = this.getBoundingClientRect();
+                const offsetY = e.clientY - rect.top;
+                if (offsetY < rect.height / 2) {
+                    this.style.borderTop = '2px solid var(--secondary-color)';
+                    this.style.borderBottom = '1px dashed var(--border-color)';
+                } else {
+                    this.style.borderBottom = '2px solid var(--secondary-color)';
+                    this.style.borderTop = '1px dashed var(--border-color)';
+                }
+            }
+        }
+
+        function handleCanvasComponentDrop(e) {
+            e.stopPropagation();
+            if (dragSrcEl !== this && this.classList.contains('dropped-component')) {
+                const rect = this.getBoundingClientRect();
+                const offsetY = e.clientY - rect.top;
+                if (offsetY < rect.height / 2) {
+                    this.parentNode.insertBefore(dragSrcEl, this);
+                } else {
+                    this.parentNode.insertBefore(dragSrcEl, this.nextSibling);
+                }
+            }
+            dragSrcEl.classList.remove('dragging');
+            appCanvas.querySelectorAll('.dropped-component').forEach(comp => {
+                comp.style.borderTop = '';
+                comp.style.borderBottom = '';
+            });
+        }
+
+
+        function selectCanvasComponent(e) {
+            e.stopPropagation(); // Prevent canvas click from deselecting
+            if (selectedCanvasComponent) {
+                selectedCanvasComponent.classList.remove('selected');
+            }
+            selectedCanvasComponent = this;
+            selectedCanvasComponent.classList.add('selected');
+            propertiesSidebar.style.display = 'block';
+            loadComponentProperties(selectedCanvasComponent);
+        }
+
+        function deleteCanvasComponent(e) {
+            e.stopPropagation(); // Prevent selection
+            if (confirm('Anda yakin ingin menghapus komponen ini?')) {
+                const componentToDelete = e.target.closest('.dropped-component');
+                if (componentToDelete === selectedCanvasComponent) {
+                    selectedCanvasComponent = null;
+                    propertiesSidebar.style.display = 'none';
+                    propertiesForm.innerHTML = '<p>Pilih komponen di kanvas untuk mengedit properti.</p>';
+                }
+                componentToDelete.remove();
+                // If no components left, show instruction again
+                if (appCanvas.querySelectorAll('.dropped-component').length === 0) {
+                    const initialInstruction = document.createElement('p');
+                    initialInstruction.style.textAlign = 'center';
+                    initialInstruction.style.color = '#888';
+                    initialInstruction.style.marginTop = '50px';
+                    initialInstruction.innerText = 'Drag & drop komponen ke sini';
+                    appCanvas.appendChild(initialInstruction);
+                }
+            }
+        }
+
+        appCanvas.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropped-component') && selectedCanvasComponent) {
+                selectedCanvasComponent.classList.remove('selected');
+                selectedCanvasComponent = null;
+                propertiesSidebar.style.display = 'none';
+                propertiesForm.innerHTML = '<p>Pilih komponen di kanvas untuk mengedit properti.</p>';
+            }
+        });
+
+
+        // --- Properties Management ---
+        function loadComponentProperties(componentElement) {
+            propertiesForm.innerHTML = ''; // Clear previous properties
+            const type = componentElement.dataset.componentType;
+            const definition = componentDefinitions[type];
+
+            if (!definition) return;
+
+            definition.properties.forEach(propDef => {
+                const label = document.createElement('label');
+                label.setAttribute('for', `${propDef.id}-${componentElement.dataset.componentId}`);
+                label.innerText = propDef.label;
+                propertiesForm.appendChild(label);
+
+                let input;
+                if (propDef.type === 'textarea') {
+                    input = document.createElement('textarea');
+                    input.rows = 3;
+                    input.value = componentElement.dataset[propDef.prop] || '';
+                } else if (propDef.type === 'text') {
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = componentElement.dataset[propDef.prop] || '';
+                }
+                // Add more input types if needed (select, number, checkbox)
+
+                input.id = `${propDef.id}-${componentElement.dataset.componentId}`;
+                input.dataset.prop = propDef.prop; // Store the actual data-property name
+                input.addEventListener('input', (e) => updateComponentProperty(componentElement, propDef.prop, e.target.value));
+                propertiesForm.appendChild(input);
+            });
+        }
+
+        function updateComponentProperty(componentElement, propName, value) {
+            componentElement.dataset[propName] = value; // Update dataset
+            // Update the actual inner HTML/attribute of the component
+            const innerElement = componentElement.querySelector('.app-text-block, .app-image, .app-button, .app-iframe, .app-bottom-nav');
+
+            if (!innerElement) { // For Navbar, which is a complex inner HTML structure
+                if (componentElement.dataset.componentType === 'navbar') {
+                    innerElement.outerHTML = componentDefinitions['navbar'].template(value);
+                }
+                return;
+            }
+
+            if (propName === 'innerText') {
+                innerElement.innerText = value;
+            } else if (propName === 'src') {
+                innerElement.src = value;
+            } else if (propName === 'data-items') { // Custom for navbar
+                 innerElement.innerHTML = value.split(',').map((item, index) => `<a href="#${item.toLowerCase().replace(/\s/g, '-')}" class="app-nav-btn ${index === 0 ? 'active' : ''}">${item}</a>`).join('');
+            }
+            // Add logic for other properties if needed
+        }
+
+        // --- Generate HTML App Logic ---
+        generateAppBtn.addEventListener('click', () => {
+            const appName = document.getElementById('zenodo-title').value || "My 2BCycle App";
+            const generatedHtml = generateFullHtmlApp(appName);
+            downloadHtmlFile(appName.replace(/\s/g, '-') + '.html', generatedHtml);
+
+            // Show Zenodo form after generation
+            zenodoForm.style.display = 'block';
+            zenodoStatus.textContent = "Aplikasi berhasil digenerate. Sekarang Anda bisa mendaftarkannya ke Zenodo.";
+        });
+
+        function generateFullHtmlApp(appName) {
+            const canvasComponents = appCanvas.querySelectorAll('.dropped-component');
+            let appBodyContent = '';
+            let appCss = `
+                body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; background-color: #f8f8f8; color: #333; }
+                .app-container { max-width: 600px; margin: 0 auto; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); background-color: white; min-height: 100vh; }
+                .app-header { text-align: center; padding: 20px 0; background-color: #2242C7; color: white; margin-bottom: 20px; }
+                .app-text-block { margin-bottom: 10px; line-height: 1.6; }
+                .app-image { display: block; max-width: 100%; height: auto; margin: 15px auto; border-radius: 8px; }
+                .app-button { display: block; width: 80%; margin: 15px auto; padding: 12px 20px; background-color: #18B875; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1em; transition: background-color 0.3s; }
+                .app-button:hover { background-color: #159a60; }
+                .app-iframe { width: 100%; min-height: 300px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; }
+
+                /* PWA style for Navbar */
+                .app-bottom-nav {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0; right: 0;
+                    display: flex;
+                    justify-content: space-around;
+                    background: #fff;
+                    box-shadow: 0 -1px 5px rgba(0,0,0,0.1);
+                    z-index: 1000;
+                    padding: 8px 0;
+                    border-top: 1px solid #eee;
+                }
+                .app-nav-btn {
+                    flex: 1;
+                    padding: 8px 0;
+                    text-align: center;
+                    color: #888;
+                    font-size: 0.8em;
+                    text-decoration: none;
+                    display: block;
+                    transition: color 0.2s;
+                }
+                .app-nav-btn.active {
+                    color: #2242C7; /* Primary color */
+                    font-weight: bold;
+                }
+                .app-nav-btn:hover {
+                    color: #18B875;
+                }
+                /* Optional: Add icons to navbar if Font Awesome is linked in generated app */
+                /* For demo, assume icons are not directly generated for simplicity, but can be added */
+            `;
+            let appJs = `
+                // PWA Service Worker Registration for the generated app itself
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('/service-worker.js')
+                            .then(registration => { console.log('App ServiceWorker registered: ', registration); })
+                            .catch(registrationError => { console.log('App ServiceWorker registration failed: ', registrationError); });
+                    });
+                }
+
+                // Basic navigation logic for bottom navbar
+                document.querySelectorAll('.app-bottom-nav .app-nav-btn').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault(); // Prevent default link behavior
+                        document.querySelectorAll('.app-bottom-nav .app-nav-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        // Implement your page/tab switching logic here
+                        // Example: show/hide content divs based on href
+                        const targetId = this.getAttribute('href').substring(1);
+                        document.querySelectorAll('.app-content-page').forEach(page => {
+                            if (page.id === targetId) {
+                                page.style.display = 'block';
+                            } else {
+                                page.style.display = 'none';
+                            }
+                        });
+                    });
+                });
+                // Initialize first page
+                document.addEventListener('DOMContentLoaded', () => {
+                    const firstPageBtn = document.querySelector('.app-bottom-nav .app-nav-btn.active');
+                    if (firstPageBtn) {
+                        const targetId = firstPageBtn.getAttribute('href').substring(1);
+                        document.getElementById(targetId).style.display = 'block';
+                    }
+                });
+
+                // Add your custom app logic here (e.g., wallet connect, PoCA, etc.)
+                // Example for a simple button click
+                document.querySelectorAll('.app-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        alert('Tombol ini diklik di aplikasi Anda!');
+                        // Implement specific logic based on button data-attributes if added
+                    });
+                });
+            `;
+
+            let hasNavbar = false;
+            let navItems = [];
+            
+            canvasComponents.forEach(comp => {
+                const type = comp.dataset.componentType;
+                const definition = componentDefinitions[type];
+                if (definition) {
+                    if (type === 'navbar') {
+                        hasNavbar = true;
+                        navItems = comp.dataset.items.split(',');
+                        // Navbar is fixed, so we'll append it at the end of body or special div
+                        // For now, it will be placed directly in the main container for simplicity in generated HTML
+                        // The template will handle its rendering position via CSS fixed positioning
+                    } else {
+                        let content = '';
+                        if (type === 'text-block') {
+                            content = comp.dataset.innerText || '';
+                            appBodyContent += definition.template(content);
+                        } else if (type === 'image') {
+                            content = comp.dataset.src || '';
+                            appBodyContent += definition.template(content);
+                        } else if (type === 'button') {
+                            content = comp.dataset.innerText || '';
+                            appBodyContent += definition.template(content);
+                        } else if (type === 'iframe') {
+                             content = comp.dataset.src || '';
+                            appBodyContent += definition.template(content);
+                        }
+                    }
+                }
+            });
+
+            // If navbar exists, structure content into pages
+            let finalAppBody = '';
+            if (hasNavbar && navItems.length > 0) {
+                // Generate content pages based on navbar items
+                finalAppBody += `<div class="app-main-content">`;
+                navItems.forEach((item, index) => {
+                    const pageId = item.toLowerCase().replace(/\s/g, '-');
+                    finalAppBody += `
+                        <div id="${pageId}" class="app-content-page" style="display: ${index === 0 ? 'block' : 'none'}; padding-bottom: 70px;">
+                            <h2>${item}</h2>
+                            <p>Ini adalah halaman "${item}". Anda bisa menambahkan konten di sini.</p>
+                            </div>
+                    `;
+                });
+                finalAppBody += `</div>`; // Close app-main-content
+                
+                // Add the actual components after the page divs (or within them if logic is complex)
+                // For this basic generator, let's keep it simple and just include the HTML content generated above
+                // For a true "Glide-like" experience, components dropped would need to be assigned to specific pages/tabs.
+                // This requires more advanced data structures (e.g., an array of pages, each with an array of components).
+                // For MVP, we'll just put all generated content within the first page/main area.
+                
+                // For now, let's just dump all generated content into a main container
+                // This requires a more complex structure if we want actual pages
+                
+                // A simpler approach for MVP: if navbar is present, the app has pages.
+                // The components generated previously should belong to specific pages.
+                // For the sake of a quick demo, we'll just put a general structure.
+                
+                // REVISED: If navbar, create empty content divs. User will manually add content to these in the future or via next builder iteration.
+                // The current components are dumped into the first page or main content area.
+                
+                finalAppBody = `
+                    <div class="app-container">
+                        <div class="app-header">
+                            <h1>${appName}</h1>
+                        </div>
+                        ${appBodyContent}
+                    </div>
+                    ${hasNavbar ? componentDefinitions['navbar'].template(navItems.join(',')) : ''}
+                `;
+
+            } else {
+                finalAppBody = `
+                    <div class="app-container">
+                        <div class="app-header">
+                            <h1>${appName}</h1>
+                        </div>
+                        ${appBodyContent}
+                    </div>
+                `;
+            }
+
+
+            return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${appName}</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <meta name="theme-color" content="#2242C7">
+    <style>
+        ${appCss}
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    ${finalAppBody}
+    <script>
+        ${appJs}
+    </script>
+</body>
+</html>
+            `;
+        }
+
+        function downloadHtmlFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- Zenodo Integration (Simulated) ---
+        zenodoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            zenodoStatus.textContent = 'Mengirim data ke Zenodo...';
+            submitToZenodoBtn.disabled = true;
+
+            const title = document.getElementById('zenodo-title').value;
+            const description = document.getElementById('zenodo-description').value;
+            const creators = document.getElementById('zenodo-creators').value;
+            const accessToken = document.getElementById('zenodo-access-token').value; // Will be ignored for simulation
+
+            const metadata = {
+                metadata: {
+                    title: title,
+                    upload_type: "software", // Or "publication", "lesson", "other"
+                    description: description,
+                    creators: creators.split(',').map(name => ({ name: name.trim(), affiliation: "Nyampah Bersama / 2BCycle Community" })),
+                    // Add more metadata fields as needed (keywords, communities, etc.)
+                    // access_right: "open", // Make public
+                    // license: "cc-by-4.0", // Creative Commons Attribution
+                }
+            };
+
+            console.log("Simulasi data Zenodo:", metadata);
+
+            // --- SIMULASI ZENODO API CALL ---
+            // In a real scenario, you would make a fetch() request to Zenodo API here.
+            // Remember CORS issues if run from file://, typically needs a proxy server for real API calls.
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
+
+            const dummyDoi = `10.5281/zenodo.${Math.floor(Math.random() * 1000000)}`;
+
+            zenodoStatus.textContent = `Jurnal berhasil disubmit (simulasi)! DOI: ${dummyDoi}`;
+            zenodoStatus.style.color = 'green';
+            submitToZenodoBtn.disabled = false;
+            // --- END SIMULASI ---
+
+            alert("Aplikasi Anda berhasil didaftarkan sebagai jurnal digital di Zenodo (simulasi)!\nDOI: " + dummyDoi + "\n\nDi dunia nyata, Anda akan mendapatkan DOI valid yang bisa diakses publik!");
+        });
+
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', () => {
+            loadingOverlay.style.display = 'none'; // Hide loading overlay
+            // Auto-fill Zenodo title with a default or prompt
+            document.getElementById('zenodo-title').value = `Aplikasi Komunitas Nyampah Bersama - ${new Date().toLocaleDateString()}`;
+        });
+
+    </script>
+</body>
+</html>
